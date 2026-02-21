@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import tkinter as tk
 import sqlite3
 import os
 import threading
@@ -305,6 +306,103 @@ def open_cashier(user, role):
     ).pack(pady=20)
 
 
+
+    # ===== قائمة كليك يمين =====
+    def show_service_menu(event, sid, name, price):
+        menu = tk.Menu(app, tearoff=0)
+        menu.add_command(
+            label="تعديل",
+            command=lambda: edit_service(sid, name, price)
+        )
+        menu.add_command(
+            label="حذف",
+            command=lambda: delete_service(sid)
+        )
+        menu.tk_popup(event.x_root, event.y_root)
+
+
+    def edit_service(sid, old_name, old_price):
+
+        win = ctk.CTkToplevel(app)
+        win.title("تعديل الصنف")
+        win.geometry("300x200")
+        win.grab_set()
+
+        name_entry = ctk.CTkEntry(win, font=("Cairo", 14))
+        name_entry.insert(0, old_name)
+        name_entry.pack(pady=10)
+
+        price_entry = ctk.CTkEntry(win, font=("Cairo", 14))
+        price_entry.insert(0, str(old_price))
+        price_entry.pack(pady=10)
+
+        def save_edit():
+            new_name = name_entry.get().strip()
+            new_price = price_entry.get().strip()
+
+            if not new_name or not new_price:
+                show_message("خطأ", "يرجى إدخال الاسم والسعر")
+                return
+
+            con = sqlite3.connect("data.db")
+            cur = con.cursor()
+            cur.execute(
+                "UPDATE services SET name=?, price=? WHERE id=?",
+                (new_name, new_price, sid)
+            )
+            con.commit()
+            con.close()
+
+            show_message("تم", "تم تعديل الصنف")
+            win.destroy()
+            load_services()
+
+        ctk.CTkButton(
+            win,
+            text="حفظ",
+            fg_color="#2ECC71",
+            command=save_edit
+        ).pack(pady=10)
+
+
+    def delete_service(sid):
+
+        win = ctk.CTkToplevel(app)
+        win.title("تأكيد الحذف")
+        win.geometry("300x150")
+        win.grab_set()
+
+        ctk.CTkLabel(
+            win,
+            text="هل أنت متأكد من الحذف؟",
+            font=("Cairo", 14)
+        ).pack(pady=20)
+
+        def confirm():
+            con = sqlite3.connect("data.db")
+            cur = con.cursor()
+            cur.execute("DELETE FROM services WHERE id=?", (sid,))
+            con.commit()
+            con.close()
+
+            show_message("تم", "تم حذف الصنف")
+            win.destroy()
+            load_services()
+
+        ctk.CTkButton(
+            win,
+            text="نعم",
+            fg_color="#E74C3C",
+            command=confirm
+        ).pack(side="left", padx=20, pady=10)
+
+        ctk.CTkButton(
+            win,
+            text="لا",
+            command=win.destroy
+        ).pack(side="right", padx=20, pady=10)
+
+
     # ===== تحميل الأصناف =====
     def load_services():
 
@@ -330,11 +428,16 @@ def open_cashier(user, role):
                 text=f"{name}\n{price}",
                 width=150,
                 height=80,
+                font=("Cairo", 18, "bold"),
+                fg_color="#1f1f1f",
+                hover_color="#C9A227",
                 command=lambda n=name, p=price:
                 add_to_cart(n, p)
             )
 
             btn.grid(row=row, column=col, padx=10, pady=10)
+
+            btn.bind("<Button-3>", lambda e, sid=sid, n=name, p=price: show_service_menu(e, sid, n, p))
 
             col += 1
             if col == 4:
